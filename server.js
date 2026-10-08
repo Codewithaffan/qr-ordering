@@ -1,12 +1,12 @@
-// Custom Node server: runs Next.js AND Socket.IO on the same HTTP server / port.
-//   npm run dev    -> node server.js --dev
-//   npm run build  -> next build
-//   npm start      -> node server.js   (production)
+// Custom Node server: runs Next.js + Socket.IO on the same HTTP server.
+// Development: npm run dev
+// Production:  npm start
 
 import { createServer } from "node:http";
 import dotenv from "dotenv";
 
-// Load environment variables before importing Next.js or Socket.IO.
+// Load local environment variables when running locally.
+// On Render, environment variables are provided by Render.
 dotenv.config({ path: ".env.local", quiet: true });
 dotenv.config({ quiet: true });
 
@@ -22,12 +22,12 @@ const missing = ["MONGODB_URI", "AUTH_SECRET"].filter(
   (key) => !process.env[key]
 );
 
-if (missing.length) {
+if (missing.length > 0) {
   console.error(
     `\n✖ Missing required environment variable(s): ${missing.join(", ")}`
   );
   console.error(
-    "  Make sure your .env.local contains the required values.\n"
+    "  Configure the required environment variables in Render or .env.local.\n"
   );
   process.exit(1);
 }
@@ -53,17 +53,19 @@ const { createSocketServer } = await import("./lib/socketServer.js");
 // Server configuration
 // --------------------------------------------------
 
+// Render automatically provides PORT.
+// Locally it falls back to 3000.
 const port = parseInt(process.env.PORT || "3000", 10);
 
-// 0.0.0.0 allows devices on the same Wi-Fi network
+// Render requires the application to listen on 0.0.0.0.
+// Locally this also allows other devices on the same network
 // to access the application.
 const host = process.env.HOST || "0.0.0.0";
 
-// IMPORTANT:
-// Use the same host for Next.js and the HTTP server.
-// Previously Next.js was forced to "localhost", which
-// caused problems when accessing the application through
-// 192.168.0.112.
+// --------------------------------------------------
+// Next.js application
+// --------------------------------------------------
+
 const app = next({
   dev,
   hostname: host,
@@ -97,27 +99,20 @@ const io = createSocketServer(httpServer);
 // --------------------------------------------------
 
 httpServer.listen(port, host, () => {
-  console.log("\n==============================================");
-  console.log("      QR ORDERING SYSTEM");
+  console.log("==============================================");
+  console.log("        QR ORDERING SYSTEM");
   console.log("==============================================");
 
-  console.log(
-    `\n> Environment: ${dev ? "development" : "production"}`
-  );
+  console.log(`Environment: ${dev ? "development" : "production"}`);
+  console.log(`Port:        ${port}`);
+  console.log(`Host:        ${host}`);
+  console.log("Socket.IO:   /socket.io");
 
-  console.log(
-    `> Local:      http://localhost:${port}`
-  );
+  if (dev) {
+    console.log(`Local:       http://localhost:${port}`);
+  }
 
-  console.log(
-    `> Network:    http://192.168.0.112:${port}`
-  );
-
-  console.log(
-    "> Socket.IO:  /socket.io"
-  );
-
-  console.log("\n==============================================\n");
+  console.log("==============================================");
 });
 
 // --------------------------------------------------
